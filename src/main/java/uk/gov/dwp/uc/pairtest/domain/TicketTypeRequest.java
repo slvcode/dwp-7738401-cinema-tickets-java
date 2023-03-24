@@ -6,7 +6,7 @@ package uk.gov.dwp.uc.pairtest.domain;
 
 public final class TicketTypeRequest {
 
-    private final Integer noOfTickets;
+    private final int noOfTickets;
     private final Type type;
 
     public TicketTypeRequest(Type type, Integer noOfTickets) {
@@ -14,7 +14,7 @@ public final class TicketTypeRequest {
         this.noOfTickets = noOfTickets;
     }
 
-    public Integer getNoOfTickets() {
+    public int getNoOfTickets() {
         return noOfTickets;
     }
 

@@ -21,7 +21,7 @@ public class TicketServiceImpl implements TicketService {
     private final TicketPaymentService ticketPaymentService;
     private final SeatReservationService seatReservationService;
 
-    private TicketServiceImpl(TicketPaymentService ticketPaymentService, SeatReservationService seatReservationService) {
+    TicketServiceImpl(TicketPaymentService ticketPaymentService, SeatReservationService seatReservationService) {
         this.ticketPaymentService = ticketPaymentService;
         this.seatReservationService = seatReservationService;
     }
@@ -42,8 +42,8 @@ public class TicketServiceImpl implements TicketService {
             ticketPaymentService.makePayment(accountId, totalAmountToPay);
             seatReservationService.reserveSeat(accountId, totalSeatsToAllocate);
 
-        } catch (Exception e) {
-            throw new InvalidPurchaseException("Unknown application error");
+        } catch (InvalidPurchaseException e) {
+            throw e;
         }
     }
 
@@ -54,29 +54,33 @@ public class TicketServiceImpl implements TicketService {
      */
     private void validatePurchaseTicketsRequest(Long accountId, TicketTypeRequest... ticketTypeRequests){
 
-        if (accountId == null || accountId <= 0) {
-            throw new InvalidPurchaseException("Account Id is not valid.");
-        }
+        try {
+            if (accountId == null || accountId <= 0) {
+                throw new InvalidPurchaseException("Account Id is not valid.");
+            }
 
-        if (ticketTypeRequests == null || ticketTypeRequests.length == 0) {
-            throw new InvalidPurchaseException("Ticket requests cannot be null or empty.");
-        }
+            if (ticketTypeRequests == null || ticketTypeRequests.length == 0) {
+                throw new InvalidPurchaseException("Ticket requests cannot be null or empty.");
+            }
 
-        int nofInfantTickets = nofInfantTicketsCount(ticketTypeRequests);
-        int nofAdultTickets = nofAdultTicketsCount(ticketTypeRequests);
-        int nofChildTickets = nofChildTicketsCount(ticketTypeRequests);
-        int totalNofSeatsToAllocate = nofAdultTickets + nofChildTickets;
+            int nofInfantTickets = nofInfantTicketsCount(ticketTypeRequests);
+            int nofAdultTickets = nofAdultTicketsCount(ticketTypeRequests);
+            int nofChildTickets = nofChildTicketsCount(ticketTypeRequests);
+            int totalNofSeatsToAllocate = nofAdultTickets + nofChildTickets;
 
-        if(totalNofSeatsToAllocate > MAX_NOF_TICKETS_ALLOWED){
-            throw new InvalidPurchaseException("The maximum number of tickets that can be purchased at a time is " + MAX_NOF_TICKETS_ALLOWED + ".");
-        }
+            if(totalNofSeatsToAllocate > MAX_NOF_TICKETS_ALLOWED){
+                throw new InvalidPurchaseException("The maximum number of tickets that can be purchased at a time is " + MAX_NOF_TICKETS_ALLOWED + ".");
+            }
 
-        if(nofInfantTickets > nofAdultTickets){
-            throw new InvalidPurchaseException("The number of infant tickets requested cannot exceed the number of adult tickets requested.");
-        }
+            if(nofInfantTickets > nofAdultTickets){
+                throw new InvalidPurchaseException("The number of infant tickets requested cannot exceed the number of adult tickets requested.");
+            }
 
-        if(!isAdultTicketPresent(ticketTypeRequests)){
-            throw new InvalidPurchaseException("Adult tickets are not present.");
+            if(!isAdultTicketPresent(ticketTypeRequests)){
+                throw new InvalidPurchaseException("Adult tickets are not present.");
+            }
+        } catch (Exception e) {
+            throw new InvalidPurchaseException("Unknown application error");
         }
     }
 
@@ -86,15 +90,19 @@ public class TicketServiceImpl implements TicketService {
      * @return
      */
     private boolean isAdultTicketPresent(TicketTypeRequest[] ticketTypeRequests) {
-        for (TicketTypeRequest request : ticketTypeRequests) {
-            switch (request.getTicketType()) {
-                case ADULT:
-                    return true;
-                default:
-                    break;
+        try {
+            for (TicketTypeRequest request : ticketTypeRequests) {
+                switch (request.getTicketType()) {
+                    case ADULT:
+                        return true;
+                    default:
+                        break;
+                }
             }
+            return false;
+        } catch (Exception e) {
+            throw new InvalidPurchaseException("Unknown application error");
         }
-        return false;
     }
 
     /**
@@ -170,7 +178,6 @@ public class TicketServiceImpl implements TicketService {
                 case INFANT: totalAmountToPay = totalAmountToPay + (nofTicketsRequested * INFANT_TICKET_PRICE);
                 case CHILD:  totalAmountToPay = totalAmountToPay + (nofTicketsRequested * CHILD_TICKET_PRICE);
                 case ADULT:  totalAmountToPay = totalAmountToPay + (nofTicketsRequested * ADULT_TICKET_PRICE);
-                default: throw new InvalidPurchaseException("Invalid ticket type");
             }
         }
         return totalAmountToPay;
