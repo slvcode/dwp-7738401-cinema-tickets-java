@@ -5,14 +5,13 @@ import thirdparty.seatbooking.SeatReservationService;
 import uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest;
 import uk.gov.dwp.uc.pairtest.exception.InvalidPurchaseException;
 
-import java.security.PrivilegedAction;
+import java.util.Arrays;
+
+import static uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest.*;
 
 public class TicketServiceImpl implements TicketService {
 
-    /**
-     *
-     * Should only have private methods other than the one below.
-     */
+
     private static final Integer MAX_NOF_TICKETS_ALLOWED = 20;
     private final Integer INFANT_TICKET_PRICE = 0;
     private final Integer CHILD_TICKET_PRICE = 10;
@@ -36,6 +35,7 @@ public class TicketServiceImpl implements TicketService {
     public void purchaseTickets(Long accountId, TicketTypeRequest... ticketTypeRequests) throws InvalidPurchaseException {
         try {
             validatePurchaseTicketsRequest(accountId, ticketTypeRequests);
+
             int totalAmountToPay = calculateTotalAmountToPay(ticketTypeRequests);
             int totalSeatsToAllocate = calculateTotalNofSeatsToAllocate(ticketTypeRequests);
 
@@ -52,35 +52,32 @@ public class TicketServiceImpl implements TicketService {
      * @param accountId
      * @param ticketTypeRequests
      */
-    private void validatePurchaseTicketsRequest(Long accountId, TicketTypeRequest... ticketTypeRequests){
+    private void validatePurchaseTicketsRequest(Long accountId, TicketTypeRequest... ticketTypeRequests)
+            throws InvalidPurchaseException {
 
         try {
             if (accountId == null || accountId <= 0) {
-                throw new InvalidPurchaseException("Account Id is not valid.");
+                throw new InvalidPurchaseException("Account Id is not valid");
             }
 
             if (ticketTypeRequests == null || ticketTypeRequests.length == 0) {
-                throw new InvalidPurchaseException("Ticket requests cannot be null or empty.");
+                throw new InvalidPurchaseException("Ticket requests cannot be null or empty");
             }
 
-            int nofInfantTickets = nofInfantTicketsCount(ticketTypeRequests);
-            int nofAdultTickets = nofAdultTicketsCount(ticketTypeRequests);
-            int nofChildTickets = nofChildTicketsCount(ticketTypeRequests);
-            int totalNofSeatsToAllocate = nofAdultTickets + nofChildTickets;
-
+            int totalNofSeatsToAllocate = calculateTotalNofSeatsToAllocate(ticketTypeRequests);
             if(totalNofSeatsToAllocate > MAX_NOF_TICKETS_ALLOWED){
-                throw new InvalidPurchaseException("The maximum number of tickets that can be purchased at a time is " + MAX_NOF_TICKETS_ALLOWED + ".");
+                throw new InvalidPurchaseException("The maximum number of tickets that can be purchased at a time is " + MAX_NOF_TICKETS_ALLOWED);
             }
 
-            if(nofInfantTickets > nofAdultTickets){
-                throw new InvalidPurchaseException("The number of infant tickets requested cannot exceed the number of adult tickets requested.");
+            if(isNofInfantGraterThanAdult(ticketTypeRequests)){
+                throw new InvalidPurchaseException("The number of infant tickets requested cannot exceed the number of adult tickets requested");
             }
 
             if(!isAdultTicketPresent(ticketTypeRequests)){
-                throw new InvalidPurchaseException("Adult tickets are not present.");
+                throw new InvalidPurchaseException("Adult tickets are not present");
             }
         } catch (Exception e) {
-            throw new InvalidPurchaseException("Unknown application error");
+            throw e;
         }
     }
 
@@ -90,77 +87,44 @@ public class TicketServiceImpl implements TicketService {
      * @return
      */
     private boolean isAdultTicketPresent(TicketTypeRequest[] ticketTypeRequests) {
-        try {
+        return Arrays.stream(ticketTypeRequests).anyMatch(n -> n.getTicketType() == Type.ADULT);
+    }
+
+    /**
+     * Check nof infant tickets are grater than nof adult tickets
+     * @param ticketTypeRequests
+     * @return
+     */
+    private boolean isNofInfantGraterThanAdult(TicketTypeRequest[] ticketTypeRequests) {
+
+        int nofInfantTickets = 0;
+        int nofAdultTickets = 0;
+
+        boolean isAdultPresent = Arrays.stream(ticketTypeRequests).anyMatch(n -> n.getTicketType() == Type.ADULT);
+
+        if(isAdultPresent) {
             for (TicketTypeRequest request : ticketTypeRequests) {
-                switch (request.getTicketType()) {
+                Type ticketType = request.getTicketType();
+                int nofTicketsRequested = request.getNoOfTickets();
+                switch (ticketType) {
+                    case INFANT:
+                        nofInfantTickets = nofTicketsRequested;
+                        break;
                     case ADULT:
-                        return true;
-                    default:
+                        nofAdultTickets = nofTicketsRequested;
                         break;
                 }
             }
-            return false;
-        } catch (Exception e) {
-            throw new InvalidPurchaseException("Unknown application error");
-        }
-    }
 
-    /**
-     * Calculate the number of INFANT tickets
-     * @param ticketTypeRequests
-     * @return
-     */
-    private int nofInfantTicketsCount(TicketTypeRequest[] ticketTypeRequests) {
-        int nofTickets = 0;
-        for (TicketTypeRequest request : ticketTypeRequests) {
-            switch (request.getTicketType()) {
-                case INFANT:
-                    nofTickets = nofTickets + 1;
-                default:
-                    break;
+            if (nofInfantTickets > nofAdultTickets) {
+                return true;
             }
         }
-        return nofTickets;
+        return false;
     }
 
     /**
-     * Calculate the number of CHILD tickets
-     * @param ticketTypeRequests
-     * @return
-     */
-    private int nofChildTicketsCount(TicketTypeRequest[] ticketTypeRequests) {
-        int nofTickets = 0;
-        for (TicketTypeRequest request : ticketTypeRequests) {
-            switch (request.getTicketType()) {
-                case CHILD:
-                    nofTickets = nofTickets + 1;
-                default:
-                    break;
-            }
-        }
-        return nofTickets;
-    }
-
-    /**
-     * Calculate the number of ADULT tickets
-     * @param ticketTypeRequests
-     * @return
-     */
-    private int nofAdultTicketsCount(TicketTypeRequest[] ticketTypeRequests) {
-        int nofTickets = 0;
-        for (TicketTypeRequest request : ticketTypeRequests) {
-            switch (request.getTicketType()) {
-                case ADULT:
-                    nofTickets = nofTickets + 1;
-                default:
-                    break;
-            }
-        }
-        return nofTickets;
-    }
-
-    /**
-     * Determine the overall total payment amount for the seats requested.
+     * Calculate the total payment amount for the seats requested.
      * @param ticketTypeRequests
      * @return
      */
@@ -170,27 +134,44 @@ public class TicketServiceImpl implements TicketService {
 
         for (TicketTypeRequest request : ticketTypeRequests) {
 
-            TicketTypeRequest.Type ticketType = request.getTicketType();
+            Type ticketType = request.getTicketType();
             int nofTicketsRequested = request.getNoOfTickets();
 
-            int ticketPrice = 0;
+            /* Infants do not pay for a ticket and are not allocated a seat.
+                They will be sitting on an Adult's lap.*/
             switch (ticketType){
-                case INFANT: totalAmountToPay = totalAmountToPay + (nofTicketsRequested * INFANT_TICKET_PRICE);
                 case CHILD:  totalAmountToPay = totalAmountToPay + (nofTicketsRequested * CHILD_TICKET_PRICE);
+                    break;
                 case ADULT:  totalAmountToPay = totalAmountToPay + (nofTicketsRequested * ADULT_TICKET_PRICE);
+                    break;
             }
         }
         return totalAmountToPay;
     }
 
     /**
-     * Determine the overall number of seats that need to be allocated.
+     * Calculate the total number of seats that need to be allocated.
      * @param ticketTypeRequests
      * @return
      */
     private int calculateTotalNofSeatsToAllocate(TicketTypeRequest[] ticketTypeRequests) {
-        int nofAdultTickets = nofAdultTicketsCount(ticketTypeRequests);
-        int nofChildTickets = nofChildTicketsCount(ticketTypeRequests);
-        return nofAdultTickets + nofChildTickets;
+
+        int totalNofSeatsToAllocate = 0;
+
+        for (TicketTypeRequest request : ticketTypeRequests) {
+
+            Type ticketType = request.getTicketType();
+            int nofTicketsRequested = request.getNoOfTickets();
+
+           /* Infants do not pay for a ticket and are not allocated a seat.
+                They will be sitting on an Adult's lap.*/
+            switch (ticketType){
+                case CHILD:  totalNofSeatsToAllocate = totalNofSeatsToAllocate + nofTicketsRequested;
+                    break;
+                case ADULT:  totalNofSeatsToAllocate = totalNofSeatsToAllocate + nofTicketsRequested;
+                    break;
+            }
+        }
+        return totalNofSeatsToAllocate;
     }
 }
